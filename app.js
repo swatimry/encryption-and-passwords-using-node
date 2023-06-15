@@ -3,7 +3,8 @@ const express=require("express");
 const bodyparser=require("body-parser");
 const mongoose=require("mongoose");
 const ejs=require("ejs");
-const md5=require("md5");
+const bcrypt=require("bcrypt");
+const round=10;
 const app=express();
 app.use(express.static("public"));
 app.set('view engine','ejs');
@@ -15,7 +16,6 @@ const userschema= new mongoose.Schema({
     password:String
 })
 
-console.log(process.env.SECRET);
 
 
 const usermodel=mongoose.model("User",userschema);
@@ -33,29 +33,32 @@ app.get("/register",function(req,res){
 })
 
 app.post("/register",function(req,res){
-    const usernew=new usermodel( {
-        email:req.body.username,
-        password:md5(req.body.password)
-    });
-    usernew.save().then(function(ans){
-        console.log(ans);
-        res.render("secrets");
+    bcrypt.hash(req.body.password,round,function(err,hash){
+        const usernew=new usermodel( {
+            email:req.body.username,
+            password:hash
+        });
+        usernew.save().then(function(ans){
+            console.log(ans);
+            res.render("secrets");
+        })
+        .catch(function(err){
+            console.log(err);
+        })
     })
-    .catch(function(err){
-        console.log(err);
-    })
+    
 })
 
 app.post("/login",function(req,res){
     usermodel.findOne({email:req.body.username}).then(function(ans){
-        if(ans.password===md5(req.body.password)){
-            console.log("valid");
-            res.render("secrets");
+       bcrypt.compare(req.body.password,ans.password,function(err,result){
+        if(result===true){
+            res.render("secrets")
         }
         else{
-            console.log("invalid");
-            res.send("not valid");
+            res.send("password incorrect")
         }
+       })
     }).catch(function(err){
         console.log(err);
         res.send("user dont eexist");
